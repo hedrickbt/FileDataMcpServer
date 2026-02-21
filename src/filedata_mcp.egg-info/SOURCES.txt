@@ -1,0 +1,15 @@
+README.md
+pyproject.toml
+src/filedata/__init__.py
+src/filedata/config.py
+src/filedata/loader.py
+src/filedata/registry.py
+src/filedata/server.py
+src/filedata_mcp.egg-info/PKG-INFO
+src/filedata_mcp.egg-info/SOURCES.txt
+src/filedata_mcp.egg-info/dependency_links.txt
+src/filedata_mcp.egg-info/entry_points.txt
+src/filedata_mcp.egg-info/requires.txt
+src/filedata_mcp.egg-info/top_level.txt
+tests/test_loader.py
+tests/test_server.py

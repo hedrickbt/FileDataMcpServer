@@ -1,0 +1,20 @@
+Let's build a python mcp server using FastMCP that can read csv and excel files.  
+* It should be configured to provide a local csv/excel file or retrieve the file via a https request.
+* Libraries that will be useful: pandas, pytest, and Polars
+* The users will be interacting with the mcp server through OpenWebUI
+* The mcp server is called FileData
+* Create tests for all of the mcp endpoints
+
+MCP server functionality
+* Get a list of the available tables
+* Get a list of the available columns
+
+Notes
+* If an Excel spreadsheet is provided, each spreadsheet tab should be treated as another "table" with the tab name being the table name
+
+
+
+Things I should add
+If a csv is provided, the table name should be mydata
+Use uv to manage dependencies and run the application
+Use pyproject.toml to track dependencies

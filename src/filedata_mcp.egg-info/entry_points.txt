@@ -1,0 +1,2 @@
+[console_scripts]
+filedata = filedata.server:run
