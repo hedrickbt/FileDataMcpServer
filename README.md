@@ -101,6 +101,27 @@ pytest tests/ -v
 
 ---
 
+## Testing sse with mcptools
+Make sure .env has FILEDATA_TRANSPORT=sse
+
+In terminal window start the server
+```bash
+. .venv/bin/activate
+python -m filedata.serve
+```
+
+In a different terminal use the client
+```bash
+brew tap f/mcptools
+brew install mcp
+mcp tools http://localhost:8000/sse
+mcp call get_tables http://localhost:8000/sse
+mcp call get_columns --params '{"table_name":"sales"}' http://localhost:8000/sse
+mcp call get_table_info --params '{"table_name":"sales"}' http://localhost:8000/sse
+mcp call query_table --params '{"table_name":"sales","limit":"1","offset":"1"}' http://localhost:8000/sse
+```
+
+
 *Inspiration: [No More SQL — Building an AI-powered CSV Analysis Agent with MCP](https://medium.com/@aktooall/no-more-sql-building-an-ai-powered-csv-analysis-agent-with-mcp-1716e89c3dba)*
 
 *Example Code: [mcp csv analyzer](https://github.com/arunak1998/mcp_csv_analyser)
