@@ -4,6 +4,7 @@ import json
 from contextlib import asynccontextmanager
 from typing import Any
 
+import polars as pl
 from fastmcp import FastMCP
 
 from .config import get_host, get_port, get_sources, get_transport
@@ -76,6 +77,34 @@ def query_table(
     df = get_table(table_name)
     subset = df.iloc[offset: offset + limit]
     return subset.to_json(orient="records", date_format="iso", default_handler=str)
+
+
+@mcp.tool()
+def execute_polars_sql(
+    table_name: str,
+    query: str,
+    limit: int = 100,
+    offset: int = 0,
+) -> str:
+    """Execute a SQL query against a table using the Polars SQL engine.
+
+    The table is available in the query under its table_name. Supports
+    SELECT, WHERE, GROUP BY, ORDER BY, aggregations, and expressions.
+
+    Args:
+        table_name: Name of the registered table to query (used as the FROM target in SQL).
+        query: SQL query string referencing table_name as the table.
+        limit: Maximum rows to return (default 100, hard cap 1000).
+        offset: Number of rows to skip from the query result (default 0).
+
+    Returns a JSON string — an array where each element is one row as an object.
+    """
+    limit = min(max(limit, 1), 1000)
+    df = get_table(table_name)
+    ctx = pl.SQLContext({table_name: pl.from_pandas(df)})
+    result = ctx.execute(query).collect()
+    subset = result.slice(offset, limit)
+    return subset.to_pandas().to_json(orient="records", date_format="iso", default_handler=str)
 
 
 @mcp.tool()

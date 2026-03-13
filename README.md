@@ -7,7 +7,8 @@ A [FastMCP](https://github.com/jlowin/fastmcp) server that exposes CSV and Excel
 - **CSV support** — each file becomes one table (named after the filename)
 - **Excel support** — each sheet tab becomes its own table (named after the tab)
 - **Flexible sources** — configure local file paths and/or HTTPS URLs
-- **4 MCP tools** — list tables, inspect columns, query rows, get table summaries
+- **Automatic type detection** — currency (`$1,234.56`) and percent (`42%`) columns are cleaned and cast to numeric on load
+- **5 MCP tools** — list tables, inspect columns, query rows, execute SQL, get table summaries
 
 ---
 
@@ -18,6 +19,7 @@ A [FastMCP](https://github.com/jlowin/fastmcp) server that exposes CSV and Excel
 | `get_tables()` | List all available table names |
 | `get_columns(table_name)` | List columns + dtypes for a table |
 | `query_table(table_name, limit, offset)` | Return rows as a JSON array |
+| `execute_polars_sql(table_name, query, limit, offset)` | Run a SQL query against a table using the Polars SQL engine |
 | `get_table_info(table_name)` | Row count, column stats, 5-row sample |
 
 ---
@@ -85,6 +87,72 @@ pytest tests/ -v
 
 ---
 
+## Testing
+
+### MCP Inspector (browser UI)
+
+```bash
+npx @modelcontextprotocol/inspector .venv/bin/python -m filedata.server
+```
+
+Or connect to a running SSE server:
+
+```bash
+npx @modelcontextprotocol/inspector http://localhost:8000/sse
+```
+
+### mcptools (CLI)
+
+Make sure `.env` has `FILEDATA_TRANSPORT=sse`, then start the server:
+
+```bash
+. .venv/bin/activate
+python -m filedata.server
+```
+
+In a different terminal:
+
+```bash
+brew tap f/mcptools
+brew install mcp
+mcp tools http://localhost:8000/sse
+mcp call get_tables http://localhost:8000/sse
+mcp call get_columns --params '{"table_name":"sales"}' http://localhost:8000/sse
+mcp call get_table_info --params '{"table_name":"sales"}' http://localhost:8000/sse
+mcp call query_table --params '{"table_name":"sales","limit":10,"offset":0}' http://localhost:8000/sse
+mcp call execute_polars_sql --params '{"table_name":"sales","query":"SELECT MAX(Price) AS MaxPrice, MIN(Price) as MinPrice FROM sales","limit":50}' http://localhost:8000/sse
+mcp call execute_polars_sql --params '{"table_name":"sales","query":"SELECT SUM(Quantity * Price) AS total FROM sales","limit":50}' http://localhost:8000/sse
+```
+
+### curl (SSE transport)
+
+SSE requires two connections — one to hold the stream, one to send messages.
+
+**Terminal 1** — open the event stream:
+```bash
+curl -N http://localhost:8000/sse
+# Server responds with:
+# event: endpoint
+# data: /messages?session_id=<uuid>
+```
+
+**Terminal 2** — POST messages to the session URL from above:
+```bash
+# Initialize
+curl -X POST "http://localhost:8000/messages?session_id=<uuid>" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"curl","version":"0.1"}}}'
+
+# List tools
+curl -X POST "http://localhost:8000/messages?session_id=<uuid>" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
+```
+
+Responses come back on Terminal 1's event stream, not in the POST response body.
+
+---
+
 ## Supported Formats
 
 - `.csv`
@@ -94,34 +162,14 @@ pytest tests/ -v
 
 - [fastmcp](https://github.com/jlowin/fastmcp) — MCP server framework
 - [pandas](https://pandas.pydata.org/) — file loading (CSV + Excel)
-- [polars](https://pola.rs/) — available for advanced data operations
+- [polars](https://pola.rs/) — SQL query engine
+- [pyarrow](https://arrow.apache.org/docs/python/) — pandas → Polars conversion backend
 - [openpyxl](https://openpyxl.readthedocs.io/) — Excel read/write engine
 - [requests](https://requests.readthedocs.io/) — HTTPS file fetching
 - [python-dotenv](https://github.com/theskumar/python-dotenv) — `.env` support
 
 ---
 
-## Testing sse with mcptools
-Make sure .env has FILEDATA_TRANSPORT=sse
-
-In terminal window start the server
-```bash
-. .venv/bin/activate
-python -m filedata.serve
-```
-
-In a different terminal use the client
-```bash
-brew tap f/mcptools
-brew install mcp
-mcp tools http://localhost:8000/sse
-mcp call get_tables http://localhost:8000/sse
-mcp call get_columns --params '{"table_name":"sales"}' http://localhost:8000/sse
-mcp call get_table_info --params '{"table_name":"sales"}' http://localhost:8000/sse
-mcp call query_table --params '{"table_name":"sales","limit":"1","offset":"1"}' http://localhost:8000/sse
-```
-
-
 *Inspiration: [No More SQL — Building an AI-powered CSV Analysis Agent with MCP](https://medium.com/@aktooall/no-more-sql-building-an-ai-powered-csv-analysis-agent-with-mcp-1716e89c3dba)*
 
-*Example Code: [mcp csv analyzer](https://github.com/arunak1998/mcp_csv_analyser)
+*Example Code: [mcp csv analyzer](https://github.com/arunak1998/mcp_csv_analyser)*

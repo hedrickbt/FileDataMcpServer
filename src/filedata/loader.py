@@ -36,10 +36,33 @@ def _load_from_path(path: Path) -> dict[str, pd.DataFrame]:
         )
 
     if suffix == ".csv":
-        return {path.stem: pd.read_csv(path)}
+        return {path.stem: _clean_dataframe(pd.read_csv(path))}
 
     # Excel — each sheet becomes its own table
     return _load_excel(path)
+
+
+def _clean_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    """Strip currency/percent formatting from string columns and cast to numeric where possible."""
+    for col in df.columns:
+        if not pd.api.types.is_string_dtype(df[col]):
+            continue
+        sample = df[col].dropna()
+        if sample.empty:
+            continue
+        # Detect currency columns: majority of non-null values start with $
+        if sample.str.match(r"^\s*\$").mean() > 0.5:
+            df[col] = pd.to_numeric(
+                df[col].str.replace(r"[\$,]", "", regex=True).str.strip(),
+                errors="coerce",
+            )
+        # Detect percent columns: majority end with %
+        elif sample.str.match(r".*%\s*$").mean() > 0.5:
+            df[col] = pd.to_numeric(
+                df[col].str.replace("%", "", regex=False).str.strip(),
+                errors="coerce",
+            ) / 100
+    return df
 
 
 def _load_excel(path: Path) -> dict[str, pd.DataFrame]:
@@ -47,7 +70,7 @@ def _load_excel(path: Path) -> dict[str, pd.DataFrame]:
     tables: dict[str, pd.DataFrame] = {}
     for sheet_name in excel_file.sheet_names:
         df = pd.read_excel(excel_file, sheet_name=sheet_name)
-        tables[str(sheet_name)] = df
+        tables[str(sheet_name)] = _clean_dataframe(df)
     return tables
 
 
